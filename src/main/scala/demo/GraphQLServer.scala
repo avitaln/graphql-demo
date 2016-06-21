@@ -42,7 +42,7 @@ object GraphqlPlayServer extends App {
               .execute(GraphQLRequest(queryHolder.query))
             val x = result.asJson.noSpaces
             IOUtils.write(x, httpResponse.getOutputStream)
-          case Xor.Left(error) => throw new RuntimeException("Failed to deserialize event", error.fillInStackTrace())
+          case Xor.Left(error) => throw new RuntimeException("Failed to decode query")
         }
       case _ =>
         httpResponse.setStatus(404)
