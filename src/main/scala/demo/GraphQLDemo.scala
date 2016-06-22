@@ -21,18 +21,10 @@ trait GraphProduct {
   @GraphQLField def pictures: Seq[String]
 }
 
-@GraphQLName("Category")
-trait GraphCategory {
-  @GraphQLField def id: String
-  @GraphQLField def name: String
-  @GraphQLField def products: Seq[GraphProduct]
-}
-
 @GraphQLName("Store")
 trait GraphStore {
   @GraphQLField def id: String
-  @GraphQLField def categories: Seq[GraphCategory]
-  @GraphQLField def products(minPrice: Option[BigDecimal], limit: Option[Int]): Seq[GraphProduct]
+  @GraphQLField def products(minPrice: Option[BigDecimal], limit: Option[Int], sortedByPrice: Option[Boolean]): Seq[GraphProduct]
   //  @GraphQLField def originStore: Option[GraphStore]
 }
 
@@ -55,7 +47,6 @@ trait GraphAccount {
 
 object DemoImplicits {
   implicit val GraphProductType = deriveObjectType[Unit, GraphProduct]()
-  implicit val GraphCategoryType = deriveObjectType[Unit, GraphCategory]()
   implicit val GraphStoreType = deriveObjectType[Unit, GraphStore]()
   implicit val GraphMetaSiteType = deriveObjectType[Unit, GraphMetaSite]()
   implicit val GraphAccountType = deriveObjectType[Unit, GraphAccount]()
@@ -63,8 +54,11 @@ object DemoImplicits {
 
 @GraphQLName("Queries")
 class DemoQueries {
-  @GraphQLField def products(ctx: Context[DemoContext, Unit])(): Seq[GraphProduct] = DemoService.products
-  @GraphQLField def account(ctx: Context[DemoContext, Unit])(): GraphAccount = DemoService.account(ctx.ctx.userId)
+  @GraphQLField def products(ctx: Context[DemoContext, Unit])(minPrice: Option[BigDecimal], limit:Option[Int], sortedByPrice: Option[Boolean]): Seq[GraphProduct] =
+    InMemoryDatabase.products(minPrice, limit, sortedByPrice)
+  @GraphQLField def product(ctx: Context[DemoContext, Unit])(id: String): Option[GraphProduct] =
+    InMemoryDatabase.product(id)
+  @GraphQLField def account(ctx: Context[DemoContext, Unit])(): GraphAccount = InMemoryDatabase.account(ctx.ctx.userId)
 }
 
 class DemoContext(val userId: String) {
@@ -76,7 +70,7 @@ object DemoSchema {
   val demoSchema = Schema(DemoQueryType)
 }
 
-object DemoService {
+object InMemoryDatabase {
 
   def prod(_id:String, _name: String, _price: BigDecimal, _pictures: Seq[String]) = new GraphProduct {
     def id: String = _id
@@ -102,34 +96,39 @@ object DemoService {
   val p43 = prod("p43","name43", 77,Seq("a.jpg","b.jpg","c.jpg"))
   val p44 = prod("p44","name44",  9,Seq("a.jpg","b.jpg","c.jpg"))
 
+  def filterProducts(allProducts: Seq[GraphProduct], minPrice: Option[BigDecimal], limit:Option[Int], sortedByPrice: Option[Boolean]): Seq[GraphProduct] = {
+    val ret = minPrice.map { x ⇒ allProducts.filter(_.price >= x) }.getOrElse(allProducts)
+    val ret1 = limit.map { x ⇒ ret.take(x) }.getOrElse(ret)
+    sortedByPrice match {
+      case Some(true) ⇒ ret1.sortBy(_.price)
+      case _ ⇒ ret1
+    }
+  }
+
   trait BaseGraphStore extends GraphStore {
     def allProducts: Seq[GraphProduct]
-    def products(minPrice: Option[BigDecimal], limit:Option[Int]): Seq[GraphProduct] = {
-      val ret = minPrice.map { x ⇒ allProducts.filter(_.price >= x) }.getOrElse(allProducts)
-      limit.map{x⇒ret.take(x)}.getOrElse(ret)
-    }
+    def products(minPrice: Option[BigDecimal], limit:Option[Int], sortedByPrice: Option[Boolean]): Seq[GraphProduct] =
+      filterProducts(allProducts, minPrice, limit, sortedByPrice)
   }
 
   val store1 = new BaseGraphStore {
     def allProducts: Seq[GraphProduct] = Seq(p11,p12,p13,p14)
-    def categories: Seq[GraphCategory] = Nil
     def id: String = "sid1"
   }
   val store2 = new BaseGraphStore {
     def allProducts: Seq[GraphProduct] = Seq(p21,p22,p23,p24)
-    def categories: Seq[GraphCategory] = Nil
     def id: String = "sid2"
   }
   val store3 = new BaseGraphStore {
     def allProducts: Seq[GraphProduct] = Seq(p31,p32,p33,p34)
-    def categories: Seq[GraphCategory] = Nil
     def id: String = "sid3"
   }
   val store4 = new BaseGraphStore {
     def allProducts: Seq[GraphProduct] = Seq(p41,p42,p43,p44)
-    def categories: Seq[GraphCategory] = Nil
     def id: String = "sid4"
   }
+
+  val allStores = Seq(store1, store2, store3, store4)
 
   val ms1 = new GraphMetaSite {
     def id: String = "msid1"
@@ -175,7 +174,13 @@ object DemoService {
     def id: String = userId
   }
 
-  def products = Seq(p11,p12,p13,p14,p21,p22,p23,p24,p31,p32,p33,p34,p41,p42,p43,p44)
+  def products(minPrice: Option[BigDecimal], limit:Option[Int], sortedByPrice: Option[Boolean]): Seq[GraphProduct] = {
+    val allProducts = allStores.flatMap(_.allProducts)
+    filterProducts(allProducts, minPrice, limit, sortedByPrice)
+  }
+
+  def product(id: String): Option[GraphProduct] = allStores.flatMap(_.allProducts).find(_.id==id)
+
 }
 
 

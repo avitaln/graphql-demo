@@ -6,17 +6,18 @@ import org.apache.commons.io.IOUtils
 import org.eclipse.jetty.server.{Request, Server}
 import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
 
-import cats.data.Xor
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.eclipse.jetty.server.handler.AbstractHandler
-import io.circe._
-import io.circe.generic.auto._
-import io.circe.parser._
-import io.circe.syntax._
 
 case class GraphQLRequest(query: String)
-case class QueryHolder(query: String, variables: Map[String,Any] = Map.empty)
+case class QueryHolder(query: String, variables: Map[String,Any] = Map.empty, operationName: String)
 
 object GraphqlPlayServer extends App {
+
+  val om = new ObjectMapper
+  om.registerModule(DefaultScalaModule)
+
   val port: Int = 9000
   private val server = new Server(port)
   server.setHandler(handler)
@@ -36,14 +37,11 @@ object GraphqlPlayServer extends App {
         httpResponse.setContentType("text/html")
         httpResponse.setStatus(200)
       case ("POST","/index") =>
-        decode[QueryHolder](IOUtils.toString(request.getInputStream)) match {
-          case Xor.Right(queryHolder) =>
-            val result = new GraphQLDemo(Executors.newFixedThreadPool(4))
-              .execute(GraphQLRequest(queryHolder.query))
-            val x = result.asJson.noSpaces
-            IOUtils.write(x, httpResponse.getOutputStream)
-          case Xor.Left(error) => throw new RuntimeException("Failed to decode query")
-        }
+        val postBody = IOUtils.toString(request.getInputStream)
+        val queryHolder = om.readValue(postBody, classOf[QueryHolder])
+        val result = new GraphQLDemo(Executors.newFixedThreadPool(4))
+          .execute(GraphQLRequest(queryHolder.query))
+        IOUtils.write(om.writeValueAsString(result), httpResponse.getOutputStream)
       case _ =>
         httpResponse.setStatus(404)
     }
@@ -73,6 +71,5 @@ object GraphqlPlayServer extends App {
       case e: Exception => throw new RuntimeException(e)
     }
   }
-
 
 }
