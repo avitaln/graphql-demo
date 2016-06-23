@@ -32,16 +32,16 @@ trait GraphStore {
 trait GraphMetaSite {
   @GraphQLField def id: String
   @GraphQLField def name: String
+  @GraphQLField def hasStore: Boolean
   @GraphQLField def store: Option[GraphStore]
-  @GraphQLField def published: Boolean
-  @GraphQLField def premium: Boolean
+  @GraphQLField def isPremium: Boolean
 }
 
 @GraphQLName("UserAccount")
 trait GraphAccount {
   @GraphQLField def id: String
   @GraphQLField def email: String
-  @GraphQLField def metaSites(onlyPublished: Option[Boolean], onlyPremium: Option[Boolean]): Seq[GraphMetaSite]
+  @GraphQLField def metaSites(onlyStores: Option[Boolean], onlyPremium: Option[Boolean]): Seq[GraphMetaSite]
 }
 
 
@@ -130,43 +130,43 @@ object InMemoryDatabase {
 
   val allStores = Seq(store1, store2, store3, store4)
 
-  val ms1 = new GraphMetaSite {
+  trait BaseGraphMetaSite extends GraphMetaSite {
+    override def hasStore: Boolean = store.isDefined
+  }
+
+  val ms1 = new BaseGraphMetaSite {
     def id: String = "msid1"
     def name: String = "Name1"
-    def published: Boolean = false
-    def premium: Boolean = false
+    def isPremium: Boolean = false
     def store: Option[GraphStore] = Some(store1)
   }
-  val ms2 = new GraphMetaSite {
+  val ms2 = new BaseGraphMetaSite {
     def id: String = "msid2"
     def name: String = "Name2"
-    def published: Boolean = true
-    def premium: Boolean = true
+    def isPremium: Boolean = true
     def store: Option[GraphStore] = Some(store2)
   }
-  val ms3 = new GraphMetaSite {
+  val ms3 = new BaseGraphMetaSite {
     def id: String = "msid3"
     def name: String = "Name3"
-    def published: Boolean = false
-    def premium: Boolean = true
+    def isPremium: Boolean = true
     def store: Option[GraphStore] = None
   }
-  val ms4 = new GraphMetaSite {
+  val ms4 = new BaseGraphMetaSite {
     def id: String = "msid4"
     def name: String = "Name4"
-    def published: Boolean = true
-    def premium: Boolean = false
+    def isPremium: Boolean = false
     def store: Option[GraphStore] = Some(store4)
   }
 
   def account(userId: String): GraphAccount = new GraphAccount {
     def email: String = "avitaln@wix.com"
-    def metaSites(onlyPublished: Option[Boolean], onlyPremium: Option[Boolean]): Seq[GraphMetaSite] = {
+    def metaSites(onlyStores: Option[Boolean], onlyPremium: Option[Boolean]): Seq[GraphMetaSite] = {
       val all = Seq(ms1,ms2,ms3,ms4)
-      (onlyPublished, onlyPremium) match {
-        case (Some(true),Some(true)) ⇒ all.filter(x⇒x.published&&x.premium)
-        case (_,Some(true)) ⇒ all.filter(_.premium)
-        case (Some(true),_) ⇒ all.filter(_.published)
+      (onlyStores, onlyPremium) match {
+        case (Some(true),Some(true)) ⇒ all.filter(x⇒x.hasStore&&x.isPremium)
+        case (_,Some(true)) ⇒ all.filter(_.isPremium)
+        case (Some(true),_) ⇒ all.filter(_.hasStore)
         case _ ⇒ all
       }
 
