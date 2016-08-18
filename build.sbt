@@ -4,7 +4,7 @@ version := "1.0"
 
 scalaVersion := "2.11.8"
 
-libraryDependencies += "org.sangria-graphql" %% "sangria" % "0.7.0"
+libraryDependencies += "org.sangria-graphql" %% "sangria" % "0.7.1"
 libraryDependencies += "org.sangria-graphql" %% "sangria-marshalling-api" % "0.2.1"
 libraryDependencies += "org.eclipse.jetty" % "jetty-server" % "9.3.9.v20160517"
 libraryDependencies += "commons-io" % "commons-io" % "2.4"

@@ -11,7 +11,7 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.eclipse.jetty.server.handler.AbstractHandler
 
 case class GraphQLRequest(query: String)
-case class QueryHolder(query: String, variables: Map[String,Any] = Map.empty, operationName: String)
+case class QueryHolder(query: String, variables: String = "", operationName: String)
 
 object GraphqlPlayServer extends App {
 
@@ -39,7 +39,8 @@ object GraphqlPlayServer extends App {
       case ("POST","/index") =>
         val postBody = IOUtils.toString(request.getInputStream)
         val queryHolder = om.readValue(postBody, classOf[QueryHolder])
-        val result = new GraphQLDemo(Executors.newFixedThreadPool(4))
+        val result = new RegularGraphQLExecutor(Executors.newFixedThreadPool(4))
+//        val result = new MacrosGraphQLExecutor(Executors.newFixedThreadPool(4))
           .execute(GraphQLRequest(queryHolder.query))
         IOUtils.write(om.writeValueAsString(result), httpResponse.getOutputStream)
       case _ =>
